@@ -15,17 +15,17 @@ If you have initialized a local Git repository and want to upload it to GitHub, 
 ```bash
 git init
 git add .
-git commit -m "Initial upload of Lia-Jette AI App"
+git commit -m "Initial commit"
 ```
 
 ### Step 2: Add Remote Repository
 
 If you haven't added a remote repository yet:
 ```bash
-git remote add origin https://github.com/USERNAME/REPOSITORY_NAME.git
+git remote add origin https://github.com/<USERNAME>/<REPOSITORY_NAME>.git
 ```
 
-Replace `USERNAME` with your GitHub username and `REPOSITORY_NAME` with your repository name.
+Replace `<USERNAME>` with your GitHub username and `<REPOSITORY_NAME>` with your repository name.
 
 To verify the remote was added correctly:
 ```bash
@@ -63,7 +63,7 @@ Check your GitHub repository in a web browser to confirm all files were uploaded
 
 **If you need to change the remote URL:**
 ```bash
-git remote set-url origin https://github.com/USERNAME/REPOSITORY_NAME.git
+git remote set-url origin https://github.com/<USERNAME>/<REPOSITORY_NAME>.git
 ```
 
 **To check which branch you're on:**
