@@ -1,0 +1,7 @@
+{
+  "name": "Lia- Jette's AI App",
+  "description": "A personalized AI dashboard for writing assistance, high-quality image generation, and research with web search. Features specialized support for dyslexia and custom templates.\n\nplease als make it possible to have all kinds of accessibility ideas and prompt factory with storage and refinement of prompts. also we need to built upp a memory of the things that the assistent need to remember\n",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
