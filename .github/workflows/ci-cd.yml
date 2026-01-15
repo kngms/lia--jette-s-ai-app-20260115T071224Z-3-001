@@ -1,0 +1,51 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      run: |
+        pytest test_app.py -v
+    
+    - name: Check code style
+      run: |
+        pip install flake8
+        flake8 app.py --max-line-length=100 --ignore=E501,W503
+  
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t jettes-ai-app:${{ github.sha }} .
+    
+    - name: Test Docker image
+      run: |
+        docker run -d -p 8080:8080 -e GEMINI_API_KEY=test-key jettes-ai-app:${{ github.sha }}
+        sleep 5
+        curl --fail http://localhost:8080/health || exit 1
