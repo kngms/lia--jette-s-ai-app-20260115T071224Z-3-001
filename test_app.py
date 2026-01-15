@@ -2,7 +2,6 @@
 Basic tests for Jette's AI App
 """
 
-import os
 import pytest
 from app import app
 

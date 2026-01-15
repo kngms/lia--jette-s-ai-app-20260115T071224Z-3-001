@@ -5,7 +5,7 @@ Deployable on Google Cloud Run with OAuth authentication
 
 import os
 import logging
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session
 from functools import wraps
 import google.generativeai as genai
 from google.oauth2 import id_token
@@ -70,23 +70,23 @@ def chat():
         data = request.get_json()
         if not data or 'message' not in data:
             return jsonify({'error': 'Message is required'}), 400
-        
+
         user_message = data['message']
-        
+
         if not model:
             return jsonify({
                 'error': 'AI service not configured. Please set GEMINI_API_KEY.'
             }), 503
-        
+
         # Generate response using Gemini
         logger.info(f"Processing message: {user_message[:50]}...")
         response = model.generate_content(user_message)
-        
+
         return jsonify({
             'response': response.text,
             'model': 'gemini-pro'
         }), 200
-        
+
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         return jsonify({'error': 'Failed to process request'}), 500
@@ -98,29 +98,29 @@ def verify_token():
     try:
         data = request.get_json()
         token = data.get('token')
-        
+
         if not token or not GOOGLE_CLIENT_ID:
             return jsonify({'error': 'Invalid request'}), 400
-        
+
         # Verify the token
         idinfo = id_token.verify_oauth2_token(
-            token, 
-            google_requests.Request(), 
+            token,
+            google_requests.Request(),
             GOOGLE_CLIENT_ID
         )
-        
+
         # Store user info in session
         session['user'] = {
             'email': idinfo.get('email'),
             'name': idinfo.get('name'),
             'picture': idinfo.get('picture')
         }
-        
+
         return jsonify({
             'success': True,
             'user': session['user']
         }), 200
-        
+
     except Exception as e:
         logger.error(f"Token verification failed: {str(e)}")
         return jsonify({'error': 'Authentication failed'}), 401
