@@ -25,7 +25,7 @@ export const callGemini = functions.https.onRequest((request, response) => {
     }
 
     try {
-      // Verify the user is authenticated (optional but recommended)
+      // Verify the user is authenticated (required for security)
       const authHeader = request.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
         response.status(401).send({ error: "Unauthorized - No token provided" });

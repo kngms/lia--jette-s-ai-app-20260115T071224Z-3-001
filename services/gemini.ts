@@ -6,7 +6,7 @@ import { secureGenerateContent } from "./secureApi";
 // Feature flag to switch between direct API and Cloud Function
 // Set to true to use Firebase Cloud Function (secure), false for local dev with API key
 const USE_CLOUD_FUNCTION = import.meta.env.VITE_USE_CLOUD_FUNCTION === 'true';
-const API_KEY = USE_CLOUD_FUNCTION ? undefined : process.env.API_KEY;
+const API_KEY = USE_CLOUD_FUNCTION ? undefined : import.meta.env.VITE_GEMINI_API_KEY;
 
 // Usage Tracking for Billing Transparency
 const trackUsage = (model: string, usage: any) => {
@@ -44,7 +44,7 @@ const callGeminiAPI = async (params: { model: string; contents: any; config?: an
   } else {
     // Use direct API for local development
     if (!API_KEY) {
-      throw new Error('GEMINI_API_KEY not configured');
+      throw new Error('VITE_GEMINI_API_KEY environment variable not configured. Please set it in your .env file.');
     }
     const ai = new GoogleGenAI({ apiKey: API_KEY });
     return await ai.models.generateContent(params);
@@ -141,7 +141,7 @@ export const textToSpeech = async (text: string, voiceName: 'Kore' | 'Puck' | 'C
     throw new Error('Text-to-Speech requires direct API access. Please configure VITE_USE_CLOUD_FUNCTION=false for TTS features.');
   }
   if (!API_KEY) {
-    throw new Error('GEMINI_API_KEY not configured');
+    throw new Error('VITE_GEMINI_API_KEY environment variable not configured. Please set it in your .env file.');
   }
   
   const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -405,7 +405,7 @@ export const synthesizeMultiSpeakerAudio = async (script: string, personas: Pers
     throw new Error('Multi-Speaker Audio requires direct API access. Please configure VITE_USE_CLOUD_FUNCTION=false for TTS features.');
   }
   if (!API_KEY) {
-    throw new Error('GEMINI_API_KEY not configured');
+    throw new Error('VITE_GEMINI_API_KEY environment variable not configured. Please set it in your .env file.');
   }
   
   const ai = new GoogleGenAI({ apiKey: API_KEY });
