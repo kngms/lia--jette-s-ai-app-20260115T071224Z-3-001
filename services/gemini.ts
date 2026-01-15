@@ -1,8 +1,12 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Tone, Length, MemoryItem, AppSettings, Persona, KnowledgeSource, KnowledgeMetadata } from "../types";
+import { secureGenerateContent } from "./secureApi";
 
-const API_KEY = process.env.API_KEY;
+// Feature flag to switch between direct API and Cloud Function
+// Set to true to use Firebase Cloud Function (secure), false for local dev with API key
+const USE_CLOUD_FUNCTION = import.meta.env.VITE_USE_CLOUD_FUNCTION === 'true';
+const API_KEY = USE_CLOUD_FUNCTION ? undefined : process.env.API_KEY;
 
 // Usage Tracking for Billing Transparency
 const trackUsage = (model: string, usage: any) => {
@@ -30,6 +34,21 @@ const trackUsage = (model: string, usage: any) => {
   
   history[today].cost += cost;
   localStorage.setItem('usageHistory', JSON.stringify(history));
+};
+
+// Helper to call Gemini API either directly or through Cloud Function
+const callGeminiAPI = async (params: { model: string; contents: any; config?: any }) => {
+  if (USE_CLOUD_FUNCTION) {
+    // Use secure Cloud Function
+    return await secureGenerateContent(params);
+  } else {
+    // Use direct API for local development
+    if (!API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
+    }
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    return await ai.models.generateContent(params);
+  }
 };
 
 // Audio Decoding Helpers
@@ -151,8 +170,6 @@ export const extractTextFromSources = async (
   files: { data: string; mimeType: string; name?: string }[],
   links: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
-  
   const contentParts: any[] = [];
   
   // Add Files
@@ -200,7 +217,7 @@ export const extractTextFromSources = async (
     `
   });
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-flash-preview',
     contents: { parts: contentParts },
     config: {
@@ -220,8 +237,6 @@ export const processKnowledgeSource = async (
   mimeType: string,
   customTags: string[] = []
 ): Promise<KnowledgeSource> => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
-  
   const isUrl = mimeType === 'link' || mimeType.includes('youtube');
   const defaultTags = ["Work", "Personal", "Research", "Media", "Finance"];
   
@@ -262,7 +277,7 @@ export const processKnowledgeSource = async (
     });
   }
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-flash-preview',
     contents: { parts: inputParts },
     config: {
@@ -324,7 +339,6 @@ export const generatePodcastScript = async (
   sources: string[] = [],
   duration: '5' | '15' | '30' = '5'
 ) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const speakers = personas.map(p => `${p.name} (Role: ${p.socialStatus}, Charakter: ${p.personalityTraits})`).join(', ');
   
   // Calculate target word count (approx 150 words per minute)
@@ -364,7 +378,7 @@ export const generatePodcastScript = async (
   [Sprecher Name]: [Text]
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-pro-preview',
     contents: prompt,
     config: {
@@ -530,7 +544,6 @@ export const generateImage = async (
   style?: string,
   negativePrompt?: string
 ) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
   
   let enhancedPrompt = prompt;
@@ -542,7 +555,7 @@ export const generateImage = async (
   }
   enhancedPrompt += memoryContext;
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-pro-image-preview',
     contents: { parts: [{ text: enhancedPrompt }] },
     config: {
@@ -565,7 +578,6 @@ export const chatWithSearch = async (
   history: { role: 'user' | 'model', parts: { text: string }[] }[],
   deepResearch: boolean = false
 ) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
   
   const model = deepResearch ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
@@ -580,7 +592,7 @@ export const chatWithSearch = async (
     config.thinkingConfig = { thinkingBudget: 8000 };
   }
   
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: model as any,
     contents: [...history, { role: 'user', parts: [{ text: message }] }],
     config
@@ -603,7 +615,6 @@ export const processWritingTask = async (
   tone: Tone,
   length: Length
 ) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
   const settings = getSettings();
   
@@ -623,7 +634,7 @@ export const processWritingTask = async (
     Sei nicht oberlehrerhaft. Formatiere die Antwort übersichtlich.${memoryContext}
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-pro-preview',
     contents: text,
     config: {
@@ -643,7 +654,6 @@ export const runCustomPrompt = async (
   systemInstruction?: string,
   persona?: Persona
 ) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
   const fullPrompt = template.replace('{{input}}', input);
   
@@ -665,7 +675,7 @@ export const runCustomPrompt = async (
     config.thinkingConfig = { thinkingBudget: 16000 };
   }
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: model as any,
     contents: fullPrompt,
     config,
@@ -676,8 +686,7 @@ export const runCustomPrompt = async (
 };
 
 export const generatePromptName = async (template: string, system: string) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-flash-preview',
     contents: `Analyze this prompt template and system instruction. Generate a short, descriptive name (max 4-5 words) for this tool. 
     Template: "${template}"
@@ -690,9 +699,8 @@ export const generatePromptName = async (template: string, system: string) => {
 };
 
 export const generateDateIdeas = async (interests: string) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-flash-preview',
     contents: `Schlage 5 kreative Wochenend-Aktivitäten vor für ein Paar in einer Fernbeziehung.
     Interessen: ${interests}
@@ -717,8 +725,6 @@ export const generateDateIdeas = async (interests: string) => {
 };
 
 export const analyzeCalendarImage = async (base64Data: string) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
-  
   const systemPrompt = `You are an expert at deciphering handwritten calendars.
   Target User: Jette (often writes in German, maybe messy handwriting).
   
@@ -738,7 +744,7 @@ export const analyzeCalendarImage = async (base64Data: string) => {
   
   Return strictly a JSON array.`;
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-pro-preview',
     contents: {
       parts: [
@@ -774,7 +780,6 @@ export const analyzeCalendarImage = async (base64Data: string) => {
 };
 
 export const scoutTrainTickets = async (dateRangeText: string, customOrigin?: string, customDest?: string, customCard?: string) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const settings = getSettings();
   
   const origin = customOrigin || settings.trainConfig.origin || "Göttingen";
@@ -792,7 +797,7 @@ export const scoutTrainTickets = async (dateRangeText: string, customOrigin?: st
   
   Antworte kurz und knapp auf Deutsch im Markdown Format.`;
   
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-pro-preview',
     contents: query,
     config: {
@@ -808,10 +813,9 @@ export const scoutTrainTickets = async (dateRangeText: string, customOrigin?: st
 
 // ... Excel services (kept as is) ...
 export const generateExcelClarification = async (description: string) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
   
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-flash-preview',
     contents: `Der User will eine Excel Tabelle erstellen.
     Beschreibung: "${description}"
@@ -826,7 +830,6 @@ export const generateExcelClarification = async (description: string) => {
 };
 
 export const generateExcelExample = async (description: string, clarification: string) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const memoryContext = getUserMemory();
   
   const prompt = `Erstelle eine Beispieltabelle basierend auf:
@@ -837,7 +840,7 @@ export const generateExcelExample = async (description: string, clarification: s
   Return ONLY a JSON object with a 'headers' array and a 'rows' array (array of arrays of strings).
   Example: { "headers": ["Datum", "Item", "Preis"], "rows": [["2024-01-01", "Kaffee", "5.00"]] }`;
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
@@ -861,7 +864,6 @@ export const generateExcelExample = async (description: string, clarification: s
 };
 
 export const generateExcelFormulas = async (description: string, tableStructure: any) => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const prompt = `Basierend auf dieser Tabelle, erstelle die Excel Formeln.
   
   Struktur: ${JSON.stringify(tableStructure)}
@@ -874,7 +876,7 @@ export const generateExcelFormulas = async (description: string, tableStructure:
   
   Antworte auf Deutsch im Markdown Format.`;
 
-  const response = await ai.models.generateContent({
+  const response = await callGeminiAPI({
     model: 'gemini-3-pro-preview',
     contents: prompt,
     config: {
