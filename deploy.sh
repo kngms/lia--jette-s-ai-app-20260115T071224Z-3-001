@@ -32,7 +32,8 @@ echo "📦 Project: $PROJECT_ID"
 # Check for GEMINI_API_KEY
 if [ -z "$GEMINI_API_KEY" ]; then
     echo "⚠️  Warning: GEMINI_API_KEY not set"
-    read -p "Enter your Gemini API key: " GEMINI_API_KEY
+    read -s -p "Enter your Gemini API key: " GEMINI_API_KEY
+    echo ""
 fi
 
 # Enable required APIs

@@ -21,7 +21,16 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Configure secret key with production safety check
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise ValueError("SECRET_KEY must be set in production environment")
+    SECRET_KEY = 'dev-secret-key-change-in-production'
+    logger.warning("Using default SECRET_KEY. Set SECRET_KEY environment variable for production.")
+
+app.secret_key = SECRET_KEY
 
 # Configure Google Gemini
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
@@ -79,7 +88,7 @@ def chat():
             }), 503
 
         # Generate response using Gemini
-        logger.info(f"Processing message: {user_message[:50]}...")
+        logger.info("Processing user message")
         response = model.generate_content(user_message)
 
         return jsonify({
